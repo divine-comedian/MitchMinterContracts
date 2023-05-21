@@ -1,0 +1,24 @@
+[profile.default]
+src = 'contracts'
+out = 'out'
+libs = ['lib']
+gas_reports = ["GiversPFP"]
+remappings = [
+    "forge-std/=lib/forge-std/src/",
+    "@openzeppelin/=lib/openzeppelin-contracts/"
+]
+
+[fmt]
+line_length = 120
+quote_style = 'single'
+
+[rpc_endpoints]
+goerli = "${GOERLI_RPC_URL}"
+
+[etherscan]
+goerli = { key = "${ETHERSCAN_API_KEY}" }
+
+
+
+
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config
