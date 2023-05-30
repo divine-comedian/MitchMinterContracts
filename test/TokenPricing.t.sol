@@ -9,7 +9,6 @@ import '../contracts/MitchMinter.sol';
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '../contracts/MitchToken.sol';
 
-
 contract ERC20Mintable is ERC20, Ownable {
     string private _name;
     string private _symbol;
@@ -92,7 +91,7 @@ contract TestMitchMinter is Test {
         vm.prank(minterOne);
         mintingContract.mintBatch(msg.sender, tokenIds, tokenAmounts);
         uint256 contractBalance = mintingContract.getBalance();
-        
+
         console.log('expected contract balance is', expectedBalance);
         console.log('contract balance is', contractBalance);
         assertEq(expectedBalance, contractBalance);

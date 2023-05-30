@@ -9,8 +9,6 @@ import '../contracts/MitchMinter.sol';
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '../contracts/MitchToken.sol';
 
-
-
 contract ERC20Mintable is ERC20, Ownable {
     string private _name;
     string private _symbol;
@@ -40,7 +38,7 @@ contract TestMitchMinter is Test {
         vm.deal(address(minterOne), 2000);
         vm.deal(address(minterTwo), 2000);
         vm.deal(address(minterThree), 2000);
-        
+
         vm.startPrank(owner);
         paymentTokenContract = new ERC20Mintable("payment token", "PAY");
         mitchTokenContract = new MitchToken();
@@ -67,18 +65,17 @@ contract TestMitchMinter is Test {
     }
 
     function testTokenURI() public {
-       string memory firstURI = mintingContract.uri(1);
-       string memory secondURI = mintingContract.uri(2);
-       assertEq(firstURI, 'firstTest');
-       assertEq(secondURI, 'secondTest');
-    } 
-
+        string memory firstURI = mintingContract.uri(1);
+        string memory secondURI = mintingContract.uri(2);
+        assertEq(firstURI, 'firstTest');
+        assertEq(secondURI, 'secondTest');
+    }
 
     function testSetTokenURI() public {
         assertEq(mintingContract.uri(1), 'firstTest');
         vm.prank(owner);
-        mintingContract.setTokenURI(1, "another test");
-        assertEq(mintingContract.uri(1), "another test");
+        mintingContract.setTokenURI(1, 'another test');
+        assertEq(mintingContract.uri(1), 'another test');
     }
 
     function testSetTokenPrice() public {
@@ -120,7 +117,7 @@ contract TestMitchMinter is Test {
         address oldToken = address(mintingContract.paymentToken());
         ERC20 anotherToken = new ERC20Mintable("mitch 2", "M2TCH");
         vm.prank(owner);
-        mintingContract.withdrawAndChangePaymentToken(anotherToken);
+        mintingContract.setPaymentToken(anotherToken);
         address newToken = address(mintingContract.paymentToken());
         assertFalse(oldToken == newToken);
     }
@@ -131,10 +128,11 @@ contract TestMitchMinter is Test {
         vm.prank(minterOne);
         mintingContract.mint(msg.sender, 1, 2);
         vm.prank(minterTwo);
-        mintingContract.mint(minterThree,2, 3);
+        mintingContract.mint(minterThree, 2, 3);
         uint256 contractBalance = mintingContract.getBalance();
-        vm.prank(owner);
-        mintingContract.withdrawAndChangePaymentToken(anotherToken);
+        vm.startPrank(owner);
+        mintingContract.withdrawTokens();
+        mintingContract.setPaymentToken(anotherToken);
         assertEq(oldToken.balanceOf(address(mintingContract)), 0);
         assertEq(oldToken.balanceOf(address(mintingContract.owner())), contractBalance);
     }
@@ -143,7 +141,7 @@ contract TestMitchMinter is Test {
         vm.prank(minterOne);
         mintingContract.mint(msg.sender, 1, 2);
         vm.prank(minterTwo);
-        mintingContract.mint(minterThree,2, 3);
+        mintingContract.mint(minterThree, 2, 3);
         uint256 contractBalance = mintingContract.getBalance();
         vm.prank(owner);
         mintingContract.withdrawTokens();
@@ -151,43 +149,41 @@ contract TestMitchMinter is Test {
         assertEq(paymentTokenContract.balanceOf(address(mintingContract.owner())), contractBalance);
     }
 
-
     function testWithdrawEther() public {
         console.log("this is the contract's balance before minting", address(mintingContract).balance);
         vm.prank(minterOne);
         (bool success1,) = payable(address(mintingContract)).call{value: 2 * price}(
             abi.encodeWithSelector(MitchMinter.mintWithNativeToken.selector, msg.sender, 1, 2)
         );
-        console.log("mint one success" , success1);
+        console.log('mint one success', success1);
         vm.prank(minterTwo);
         (bool success2,) = payable(address(mintingContract)).call{value: 3 * price}(
             abi.encodeWithSelector(MitchMinter.mintWithNativeToken.selector, msg.sender, 2, 3)
         );
-        console.log("mint two success" , success2);
+        console.log('mint two success', success2);
         uint256 contractEtherBalance = address(mintingContract).balance;
         console.log("this is the contract's ether balance before withdraw", contractEtherBalance);
         vm.prank(owner);
         console.log(address(owner));
         console.log(address(mintingContract.owner()));
         vm.prank(owner);
-    try mintingContract.withdrawNativeToken() {
-        console.log("Withdraw success");
-    } catch Error(string memory reason) {
-        console.log("Withdraw failed with reason:", reason);
-    } catch {
-        console.log("Withdraw failed");
-    }
+        try mintingContract.withdrawNativeToken() {
+            console.log('Withdraw success');
+        } catch Error(string memory reason) {
+            console.log('Withdraw failed with reason:', reason);
+        } catch {
+            console.log('Withdraw failed');
+        }
         console.log("this is the owner's balance", address(mintingContract.owner()).balance);
         // assertEq(address(mintingContract).balance, 0);
-        // assertEq(address(mintingContract.owner()).balance, contractEtherBalance); 
-
-        }
+        // assertEq(address(mintingContract.owner()).balance, contractEtherBalance);
+    }
 
     function testFailWithdraw() public {
         vm.prank(minterOne);
         mintingContract.mint(msg.sender, 1, 2);
         vm.prank(minterTwo);
-        mintingContract.mint(minterThree,2, 3);
+        mintingContract.mint(minterThree, 2, 3);
         vm.prank(minterFour);
         mintingContract.withdrawTokens();
     }
@@ -198,11 +194,11 @@ contract TestMitchMinter is Test {
         vm.prank(owner);
         mintingContract.setNativeTokenMinting(true);
         vm.prank(minterOne);
-         (bool success,) = payable(address(mintingContract)).call{value: 2 * price}(
+        (bool success,) = payable(address(mintingContract)).call{value: 2 * price}(
             abi.encodeWithSelector(MitchMinter.mintWithNativeToken.selector, minterOne, 1, 2)
         );
         vm.prank(minterTwo);
-         (bool success2,) = payable(address(mintingContract)).call{value: 3 * price}(
+        (bool success2,) = payable(address(mintingContract)).call{value: 3 * price}(
             abi.encodeWithSelector(MitchMinter.mintWithNativeToken.selector, minterOne, 1, 3)
         );
         uint256 contractBalance = mintingContract.getNativeBalance();

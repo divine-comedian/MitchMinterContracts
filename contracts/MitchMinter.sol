@@ -5,7 +5,7 @@ import '@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/token/ERC1155/extensions/ERC1155URIStorage.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 
 import './MitchToken.sol';
 
@@ -33,7 +33,9 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
     /// @param _paymentToken this is the token that will be used to buy NFTs when nativeMintEnabled is false
     /// @param _mitchToken this is the address of the Mitch Token which is minted to the NFT minter for every NFT they mint
     /// @param _defaultPrice the default price if none has been defined for a specific tokenID
-    constructor(string memory _baseURI, IERC20 _paymentToken, address _mitchToken, uint256 _defaultPrice) ERC1155(_baseURI) {
+    constructor(string memory _baseURI, IERC20 _paymentToken, address _mitchToken, uint256 _defaultPrice)
+        ERC1155(_baseURI)
+    {
         baseURI = _baseURI;
         paymentToken = _paymentToken;
         defaultPrice = _defaultPrice;
@@ -46,11 +48,11 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
     /// @param id The token ID of the mint to be minted
     /// @param amount the amount of NFTs to mint
     function mint(address to, uint256 id, uint256 amount) external {
-        require(!nativeMintEnabled,'Can only mint with ERC20 token');
+        require(!nativeMintEnabled, 'Can only mint with ERC20 token');
         require(amount > 0, 'Amount cannot be 0');
         uint256 totalPrice;
         uint256 unitPrice;
-        
+
         if (id > uniqueTokens) {
             revert NoTokenExists(id);
         }
@@ -86,7 +88,7 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
             require(msg.value >= totalPrice, 'Insufficient funds!');
             emit Mint(to, id, amount, totalPrice);
         }
-        
+
         mitchToken.mint(to, amount.mul(1 ether));
         _mint(to, id, amount, '');
     }
@@ -96,7 +98,7 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
     /// @param ids an array of the token IDs of the NFTs to be minted
     /// @param amounts an array of the amount of each corresponding NFT by tokenID to be minted
     function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts) external {
-        require(!nativeMintEnabled,'Can only mint with ERC20 token' );
+        require(!nativeMintEnabled, 'Can only mint with ERC20 token');
         uint256 finalPrice;
         uint256 totalAmount;
         if (msg.sender != owner()) {
@@ -123,6 +125,7 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
     /// @param to the address to mint the NFTs to
     /// @param ids an array of the token IDs of the NFTs to be minted
     /// @param amounts an array of the amount of each corresponding NFT by tokenID to be minted
+
     function mintBatchWithNativeToken(address to, uint256[] memory ids, uint256[] memory amounts) external payable {
         require(nativeMintEnabled, 'Can only mint with native token');
         uint256 finalPrice;
@@ -147,10 +150,11 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
         mitchToken.mint(to, totalAmount.mul(1 ether));
         _mintBatch(to, ids, amounts, '');
     }
-    /// 
+    ///
     /// @param tokenId the token id of the NFT
     /// @return uri URI for a given token ID
-    function uri(uint256 tokenId) public view virtual override (ERC1155, ERC1155URIStorage) returns (string memory) {
+
+    function uri(uint256 tokenId) public view virtual override(ERC1155, ERC1155URIStorage) returns (string memory) {
         return super.uri(tokenId);
     }
 
@@ -176,8 +180,7 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
 
     /// @notice this will change the address of the ERC20 compatible token used for payment of NFTs, only callable by owner
     /// @param newPaymentToken the address of the new ERC20 compatible token
-     function withdrawAndChangePaymentToken(IERC20 newPaymentToken) external onlyOwner {
-        _withdraw();
+    function setPaymentToken(IERC20 newPaymentToken) external onlyOwner {
         paymentToken = newPaymentToken;
     }
 
@@ -203,10 +206,6 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
 
     /// @notice withdraws the whole balance of payment tokens in the contract to the owner address, only callable by owner
     function withdrawTokens() external onlyOwner {
-       _withdraw();
-    }
-
-    function _withdraw() internal {
         uint256 tokenBalance = paymentToken.balanceOf(address(this));
         if (tokenBalance > 0) {
             paymentToken.safeTransfer(owner(), tokenBalance);
@@ -220,15 +219,15 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
     }
 
     /// @notice withdraws the whole balance of network native tokens in the contract to the owner address, only callable by owner
-    function withdrawNativeToken() external onlyOwner payable {
+    function withdrawNativeToken() external payable onlyOwner {
         (bool sent,) = payable(owner()).call{value: address(this).balance}('');
         require(sent, 'Failed to send Ether');
     }
 
     /// @notice this will return the price and URI of a specific NFT by its token ID
-    function getTokenInfo(uint tokenId) external view returns (uint256 price, string memory tokenURI) {
-            tokenPrice[tokenId] == 0 ? price = defaultPrice : price = tokenPrice[tokenId];
-            tokenURI = uri(tokenId);
+    function getTokenInfo(uint256 tokenId) external view returns (uint256 price, string memory tokenURI) {
+        tokenPrice[tokenId] == 0 ? price = defaultPrice : price = tokenPrice[tokenId];
+        tokenURI = uri(tokenId);
     }
 
     /// @notice this will return the balance of payment tokens held in this contract
@@ -236,13 +235,13 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
         return paymentToken.balanceOf(address(this));
     }
     /// @notice this will return the balance of network native tokens held in this contract
+
     function getNativeBalance() external view returns (uint256) {
         return address(this).balance;
     }
 
     /// @notice this will return the total amount of unique tokens in the collection
-    function getUniqueTokens() external view returns (uint96) { 
+    function getUniqueTokens() external view returns (uint96) {
         return uniqueTokens;
     }
-
 }
