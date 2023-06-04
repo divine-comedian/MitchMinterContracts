@@ -7,9 +7,12 @@ import '@openzeppelin/contracts/token/ERC1155/extensions/ERC1155URIStorage.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol';
-import './MitchToken.sol';
 
-contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
+interface IMitchToken {
+    function mint(address to, uint256 amount) external;
+}   
+
+contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage, ERC1155Supply {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
@@ -21,12 +24,13 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
 
     bool public nativeMintEnabled;
     IERC20 public paymentToken;
-    MitchToken private mitchToken;
+    uint96 public uniqueTokens = 0;
+    IMitchToken public mitchToken;
     string baseURI;
     uint256 defaultPrice;
-    uint96 uniqueTokens = 0;
 
     mapping(uint256 => uint256) public tokenPrice;
+    mapping(uint256 => uint256) public maxTokenSupply;
 
     /// This is the basic initliazation function for the contract
     /// @param _baseURI the base URI to initliaze the contract with - will not be shown to users
@@ -39,7 +43,7 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
         baseURI = _baseURI;
         paymentToken = _paymentToken;
         defaultPrice = _defaultPrice;
-        mitchToken = MitchToken(_mitchToken);
+        mitchToken = IMitchToken(_mitchToken);
         nativeMintEnabled = true;
     }
 
@@ -48,14 +52,15 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
     /// @param id The token ID of the mint to be minted
     /// @param amount the amount of NFTs to mint
     function mint(address to, uint256 id, uint256 amount) external {
+        if (id > uniqueTokens) {
+            revert NoTokenExists(id);
+        }
+        uint256 currentSupply = totalSupply(id);
+        require(currentSupply + amount <= maxTokenSupply[id], 'Cannot exceed Max Supply');
         require(!nativeMintEnabled, 'Can only mint with ERC20 token');
         require(amount > 0, 'Amount cannot be 0');
         uint256 totalPrice;
         uint256 unitPrice;
-
-        if (id > uniqueTokens) {
-            revert NoTokenExists(id);
-        }
 
         if (msg.sender != owner()) {
             tokenPrice[id] == 0 ? unitPrice = defaultPrice : unitPrice = tokenPrice[id];
@@ -73,14 +78,15 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
     /// @param id The token ID of the mint to be minted
     /// @param amount the amount of NFTs to mint
     function mintWithNativeToken(address to, uint256 id, uint256 amount) external payable {
+        if (id > uniqueTokens) {
+            revert NoTokenExists(id);
+        }
         require(nativeMintEnabled, 'Can only mint with native token');
         require(amount > 0, 'Amount cannot be 0');
         uint256 totalPrice;
         uint256 unitPrice;
-
-        if (id > uniqueTokens) {
-            revert NoTokenExists(id);
-        }
+        uint256 currentSupply = totalSupply(id);
+        require(currentSupply + amount <= maxTokenSupply[id], 'Cannot exceed Max Supply');
 
         if (msg.sender != owner()) {
             tokenPrice[id] == 0 ? unitPrice = defaultPrice : unitPrice = tokenPrice[id];
@@ -107,6 +113,8 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
                 if (ids[i] > uniqueTokens) {
                     revert NoTokenExists(ids[i]);
                 }
+                uint256 currentSupply = totalSupply(ids[i]);
+                require(currentSupply + amounts[i] <= maxTokenSupply[ids[i]], 'Cannot exceed Max Supply');
                 uint256 unitPrice;
                 tokenPrice[ids[i]] == 0 ? unitPrice = defaultPrice : unitPrice = tokenPrice[ids[i]];
                 finalPrice += unitPrice.mul(amounts[i]);
@@ -136,6 +144,8 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
                 if (ids[i] > uniqueTokens) {
                     revert NoTokenExists(ids[i]);
                 }
+                uint256 currentSupply = totalSupply(ids[i]);
+                require(currentSupply + amounts[i] <= maxTokenSupply[ids[i]], 'Cannot exceed Max Supply');
                 uint256 unitPrice;
                 tokenPrice[ids[i]] == 0 ? unitPrice = defaultPrice : unitPrice = tokenPrice[ids[i]];
                 finalPrice += unitPrice.mul(amounts[i]);
@@ -199,9 +209,11 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
 
     /// @notice this will add a new token to the collection, starts with default price, only callable by owner
     /// @param tokenURI the URI of the new token to be added
-    function addToken(string memory tokenURI) external onlyOwner {
+    function addToken(string memory tokenURI, uint256 maxSupply) external onlyOwner {
         uniqueTokens++;
         _setURI(uniqueTokens, tokenURI);
+        uint256 tokenId = uniqueTokens;
+        maxTokenSupply[tokenId] = maxSupply;
     }
 
     /// @notice withdraws the whole balance of payment tokens in the contract to the owner address, only callable by owner
@@ -229,19 +241,14 @@ contract MitchMinter is ERC1155Burnable, Ownable, ERC1155URIStorage {
         tokenPrice[tokenId] == 0 ? price = defaultPrice : price = tokenPrice[tokenId];
         tokenURI = uri(tokenId);
     }
-
-    /// @notice this will return the balance of payment tokens held in this contract
-    function getBalance() external view returns (uint256) {
-        return paymentToken.balanceOf(address(this));
-    }
-    /// @notice this will return the balance of network native tokens held in this contract
-
-    function getNativeBalance() external view returns (uint256) {
-        return address(this).balance;
-    }
-
-    /// @notice this will return the total amount of unique tokens in the collection
-    function getUniqueTokens() external view returns (uint96) {
-        return uniqueTokens;
+    function _beforeTokenTransfer(
+        address operator,
+        address from,
+        address to,
+        uint256[] memory ids,
+        uint256[] memory amounts,
+        bytes memory data
+    ) internal override(ERC1155, ERC1155Supply) {
+        super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
     }
 }

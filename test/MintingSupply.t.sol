@@ -5,7 +5,7 @@ import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import 'forge-std/Test.sol';
 import 'ds-test/test.sol';
-import '../contracts/MitchMinter.sol';
+import '../contracts/MitchMinterSupply.sol';
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '../contracts/MitchToken.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
@@ -46,10 +46,10 @@ contract TestMitchMinter is Test {
         paymentTokenContract.mint(minterTwo, 100000);
         paymentTokenContract.mint(minterThree, 100000);
 
-        mintingContract.addToken('firstTest');
-        mintingContract.addToken('secondTest');
-        mintingContract.addToken('thirdTest');
-        mintingContract.addToken('fourthTest');
+        mintingContract.addToken('firstTest', 100);
+        mintingContract.addToken('secondTest', 100);
+        mintingContract.addToken('thirdTest', 100);
+        mintingContract.addToken('fourthTest', 100);
         mitchTokenContract.grantRole(mitchTokenContract.MINTER_ROLE(), address(mintingContract));
         vm.stopPrank();
 
@@ -66,7 +66,6 @@ contract TestMitchMinter is Test {
         uint256 mintAmount = 5;
         mintingContract.mint(msg.sender, 1, mintAmount);
         uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContract));
-
         assertEq(contractBalance, (price * mintAmount));
     }
 
@@ -144,7 +143,6 @@ contract TestMitchMinter is Test {
         vm.prank(minterOne);
         mintingContract.mintBatch(msg.sender, tokenIds, tokenAmounts);
         uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContract));
-
         assertEq(contractBalance, 1800);
     }
 
@@ -162,7 +160,6 @@ contract TestMitchMinter is Test {
         vm.prank(owner);
         mintingContract.mintBatch(msg.sender, tokenIds, tokenAmounts);
         uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContract));
-
         assertEq(contractBalance, 0);
     }
 
@@ -171,7 +168,6 @@ contract TestMitchMinter is Test {
         uint256 mintAmount = 5;
         mintingContract.mint(msg.sender, 1, mintAmount);
         uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContract));
-
         assertEq(contractBalance, 0);
     }
 

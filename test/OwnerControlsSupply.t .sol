@@ -5,7 +5,7 @@ import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import 'forge-std/Test.sol';
 import 'ds-test/test.sol';
-import '../contracts/MitchMinter.sol';
+import '../contracts/MitchMinterSupply.sol';
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '../contracts/MitchToken.sol';
 
@@ -48,10 +48,10 @@ contract TestMitchMinter is Test {
         paymentTokenContract.mint(minterTwo, 100000);
         paymentTokenContract.mint(minterThree, 100000);
 
-        mintingContract.addToken('firstTest');
-        mintingContract.addToken('secondTest');
-        mintingContract.addToken('thirdTest');
-        mintingContract.addToken('fourthTest');
+        mintingContract.addToken('firstTest', 100);
+        mintingContract.addToken('secondTest', 100);
+        mintingContract.addToken('thirdTest', 100);
+        mintingContract.addToken('fourthTest', 100);
         mitchTokenContract.grantRole(mitchTokenContract.MINTER_ROLE(), address(mintingContract));
 
         vm.stopPrank();
@@ -204,6 +204,7 @@ contract TestMitchMinter is Test {
             abi.encodeWithSelector(MitchMinter.mintWithNativeToken.selector, minterOne, 1, 3)
         );
         uint256 contractBalance = address(mintingContract).balance;
+
         assertEq(contractBalance, 5 * price);
     }
 

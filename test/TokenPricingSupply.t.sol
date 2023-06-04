@@ -5,7 +5,7 @@ import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import 'forge-std/Test.sol';
 import 'ds-test/test.sol';
-import '../contracts/MitchMinter.sol';
+import '../contracts/MitchMinterSupply.sol';
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '../contracts/MitchToken.sol';
 
@@ -47,13 +47,13 @@ contract TestMitchMinter is Test {
         paymentTokenContract.mint(minterTwo, 100000);
         paymentTokenContract.mint(minterThree, 100000);
 
-        mintingContract.addToken('firstTest');
+        mintingContract.addToken('firstTest', 100);
         mintingContract.setTokenPrice(1, firstTokenPrice);
-        mintingContract.addToken('secondTest');
+        mintingContract.addToken('secondTest', 100);
         mintingContract.setTokenPrice(2, secondTokenPrice);
-        mintingContract.addToken('thirdTest');
+        mintingContract.addToken('thirdTest', 100);
         mintingContract.setTokenPrice(3, thirdTokenPrice);
-        mintingContract.addToken('fourthTest');
+        mintingContract.addToken('fourthTest', 100);
         mintingContract.setTokenPrice(4, fourthTokenPrice);
         mitchTokenContract.grantRole(mitchTokenContract.MINTER_ROLE(), address(mintingContract));
         vm.stopPrank();
