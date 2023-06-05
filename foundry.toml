@@ -5,7 +5,8 @@ libs = ['lib']
 gas_reports = ["GiversPFP"]
 remappings = [
     "forge-std/=lib/forge-std/src/",
-    "@openzeppelin/=lib/openzeppelin-contracts/"
+    "@openzeppelin/=lib/openzeppelin-contracts/",
+    "@openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable"
 ]
 
 [fmt]
