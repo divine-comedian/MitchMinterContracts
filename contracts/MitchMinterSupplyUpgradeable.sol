@@ -39,7 +39,7 @@ contract MitchMinter is ERC1155BurnableUpgradeable, ERC1155URIStorageUpgradeable
     mapping(uint256 => uint256) public maxTokenSupply;
 
     constructor() {
-       
+       _disableInitializers();
     }
 
     /// This is the basic initliazation function for the contract

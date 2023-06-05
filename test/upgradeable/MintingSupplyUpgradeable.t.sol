@@ -28,12 +28,13 @@ contract TestMitchMinter is Test {
 
     string baseURI = 'test';
     MitchMinter public mintingContract;
+    MitchMinter public mintingContractProxy;
     ERC20Mintable public paymentTokenContract;
     MitchToken public mitchTokenContract;
     ProxyAdmin public proxyAdmin;
     TransparentUpgradeableProxy public proxy;
     uint256 price = 300;
-
+    address internal proxyAdminAddress = address(0);
     address internal owner = address(1);
     address internal minterOne = address(2);
     address internal minterTwo = address(3);
@@ -41,58 +42,60 @@ contract TestMitchMinter is Test {
     address internal minterFour = address(5);
 
     function setUp() public {
+        vm.prank(proxyAdminAddress);
+        proxyAdmin = new ProxyAdmin();
         vm.startPrank(owner);
         paymentTokenContract = new ERC20Mintable("payment token", "PAY");
         mitchTokenContract = new MitchToken();
         mintingContract = new MitchMinter();
-        proxyAdmin = new ProxyAdmin();
-        mintingContract.initialize(baseURI, paymentTokenContract, address(mitchTokenContract), price);
         proxy = new TransparentUpgradeableProxy(address(mintingContract), address(proxyAdmin), '');
-        mintingContract.setNativeTokenMinting(false);
+        mintingContractProxy = MitchMinter(address(proxy));
+        mintingContractProxy.initialize(baseURI, IERC20(paymentTokenContract), address(mitchTokenContract), price);
+        mintingContractProxy.setNativeTokenMinting(false);
         paymentTokenContract.mint(minterOne, 100000);
         paymentTokenContract.mint(minterTwo, 100000);
         paymentTokenContract.mint(minterThree, 100000);
 
-        mintingContract.addToken('firstTest', 100);
-        mintingContract.addToken('secondTest', 100);
-        mintingContract.addToken('thirdTest', 100);
-        mintingContract.addToken('fourthTest', 100);
-        mitchTokenContract.grantRole(mitchTokenContract.MINTER_ROLE(), address(mintingContract));
+        mintingContractProxy.addToken('firstTest', 100);
+        mintingContractProxy.addToken('secondTest', 100);
+        mintingContractProxy.addToken('thirdTest', 100);
+        mintingContractProxy.addToken('fourthTest', 100);
+        mitchTokenContract.grantRole(mitchTokenContract.MINTER_ROLE(), address(mintingContractProxy));
         vm.stopPrank();
 
         vm.prank(minterOne);
-        paymentTokenContract.approve(address(mintingContract), 5000);
+        paymentTokenContract.approve(address(mintingContractProxy), 5000);
         vm.prank(minterTwo);
-        paymentTokenContract.approve(address(mintingContract), 5000);
+        paymentTokenContract.approve(address(mintingContractProxy), 5000);
         vm.prank(minterThree);
-        paymentTokenContract.approve(address(mintingContract), 5000);
+        paymentTokenContract.approve(address(mintingContractProxy), 5000);
     }
 
     function testMint() public {
         vm.prank(minterOne);
         uint256 mintAmount = 5;
-        mintingContract.mint(msg.sender, 1, mintAmount);
-        uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContract));
+        mintingContractProxy.mint(msg.sender, 1, mintAmount);
+        uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContractProxy));
         assertEq(contractBalance, (price * mintAmount));
     }
 
     function testMintWithNative() public {
         vm.prank(owner);
-        mintingContract.setNativeTokenMinting(true);
+        mintingContractProxy.setNativeTokenMinting(true);
         vm.deal(address(minterOne), 2000);
         vm.prank(minterOne);
         console.log(address(minterOne).balance);
         uint256 mintAmount = 5;
-        payable(address(mintingContract)).call{value: mintAmount * price}(
+        payable(address(mintingContractProxy)).call{value: mintAmount * price}(
             abi.encodeWithSelector(MitchMinter.mintWithNativeToken.selector, msg.sender, 1, mintAmount)
         );
-        uint256 contractBalance = address(mintingContract).balance;
+        uint256 contractBalance = address(mintingContractProxy).balance;
         assertEq(contractBalance, (price * mintAmount));
     }
 
     function testMintBatchWithNative() public {
         vm.prank(owner);
-        mintingContract.setNativeTokenMinting(true);
+        mintingContractProxy.setNativeTokenMinting(true);
         uint256 finalPrice;
         uint256 totalAmount;
         uint256[] memory tokenAmounts = new uint256[](3);
@@ -108,7 +111,7 @@ contract TestMitchMinter is Test {
         for (uint256 i = 0; i < tokenIds.length;) {
             uint256 tokenPrice;
             string memory tokenURI;
-            (tokenPrice, tokenURI) = mintingContract.getTokenInfo(tokenIds[i]);
+            (tokenPrice, tokenURI) = mintingContractProxy.getTokenInfo(tokenIds[i]);
             finalPrice += tokenPrice * tokenAmounts[i];
             totalAmount += tokenAmounts[i];
             unchecked {
@@ -120,10 +123,10 @@ contract TestMitchMinter is Test {
         vm.deal(address(minterOne), 3000);
         vm.prank(minterOne);
         console.log("this is the minter's balance", address(minterOne).balance);
-        payable(address(mintingContract)).call{value: finalPrice}(
+        payable(address(mintingContractProxy)).call{value: finalPrice}(
             abi.encodeWithSelector(MitchMinter.mintBatchWithNativeToken.selector, msg.sender, tokenIds, tokenAmounts)
         );
-        uint256 contractBalance = address(mintingContract).balance;
+        uint256 contractBalance = address(mintingContractProxy).balance;
         assertEq(contractBalance, (finalPrice));
         console.log("this is the minter's balance after mint", address(minterOne).balance);
     }
@@ -133,7 +136,7 @@ contract TestMitchMinter is Test {
         uint256 tokenId = 6;
         uint256 mintAmount = 5;
         vm.expectRevert(abi.encodeWithSelector(MitchMinter.NoTokenExists.selector, tokenId));
-        mintingContract.mint(msg.sender, tokenId, mintAmount);
+        mintingContractProxy.mint(msg.sender, tokenId, mintAmount);
     }
 
     function testBatchMint() public {
@@ -148,8 +151,8 @@ contract TestMitchMinter is Test {
         tokenIds[2] = 3;
 
         vm.prank(minterOne);
-        mintingContract.mintBatch(msg.sender, tokenIds, tokenAmounts);
-        uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContract));
+        mintingContractProxy.mintBatch(msg.sender, tokenIds, tokenAmounts);
+        uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContractProxy));
         assertEq(contractBalance, 1800);
     }
 
@@ -165,23 +168,23 @@ contract TestMitchMinter is Test {
         tokenIds[2] = 3;
 
         vm.prank(owner);
-        mintingContract.mintBatch(msg.sender, tokenIds, tokenAmounts);
-        uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContract));
+        mintingContractProxy.mintBatch(msg.sender, tokenIds, tokenAmounts);
+        uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContractProxy));
         assertEq(contractBalance, 0);
     }
 
     function testOwnerMint() public {
         vm.prank(owner);
         uint256 mintAmount = 5;
-        mintingContract.mint(msg.sender, 1, mintAmount);
-        uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContract));
+        mintingContractProxy.mint(msg.sender, 1, mintAmount);
+        uint256 contractBalance = paymentTokenContract.balanceOf(address(mintingContractProxy));
         assertEq(contractBalance, 0);
     }
 
     function testMitchBalance() public {
         vm.prank(minterOne);
         uint256 mintAmount = 5;
-        mintingContract.mint(minterOne, 1, mintAmount);
+        mintingContractProxy.mint(minterOne, 1, mintAmount);
         uint256 mitchTokenBalance = mitchTokenContract.balanceOf(minterOne);
         console.log('the balance of the mitch token is', mitchTokenBalance);
         assertEq(mitchTokenBalance, mintAmount.mul(1 ether));
@@ -204,7 +207,7 @@ contract TestMitchMinter is Test {
         for (uint256 i = 0; i < tokenIds.length;) {
             uint256 tokenPrice;
             string memory tokenURI;
-            (tokenPrice, tokenURI) = mintingContract.getTokenInfo(tokenIds[i]);
+            (tokenPrice, tokenURI) = mintingContractProxy.getTokenInfo(tokenIds[i]);
             finalPrice += tokenPrice * tokenAmounts[i];
             totalAmount += tokenAmounts[i];
             unchecked {
@@ -215,7 +218,7 @@ contract TestMitchMinter is Test {
         console.log('this is the price', finalPrice);
 
         vm.prank(minterOne);
-        mintingContract.mintBatch(minterOne, tokenIds, tokenAmounts);
+        mintingContractProxy.mintBatch(minterOne, tokenIds, tokenAmounts);
         uint256 mitchTokenBalance = mitchTokenContract.balanceOf(minterOne);
         console.log('this is the total amount', totalAmount);
         console.log('the balance of the mitch token is', mitchTokenBalance);
@@ -224,7 +227,7 @@ contract TestMitchMinter is Test {
 
     function testMitchBalanceBatchWithNative() public {
         vm.prank(owner);
-        mintingContract.setNativeTokenMinting(true);
+        mintingContractProxy.setNativeTokenMinting(true);
 
         uint256 finalPrice;
         uint256 totalAmount;
@@ -241,7 +244,7 @@ contract TestMitchMinter is Test {
         for (uint256 i = 0; i < tokenIds.length;) {
             uint256 tokenPrice;
             string memory tokenURI;
-            (tokenPrice, tokenURI) = mintingContract.getTokenInfo(tokenIds[i]);
+            (tokenPrice, tokenURI) = mintingContractProxy.getTokenInfo(tokenIds[i]);
             finalPrice += tokenPrice * tokenAmounts[i];
             totalAmount += tokenAmounts[i];
             unchecked {
@@ -253,7 +256,7 @@ contract TestMitchMinter is Test {
         vm.deal(address(minterOne), 3000);
         vm.prank(minterOne);
         console.log("this is the minter's balance", address(minterOne).balance);
-        payable(address(mintingContract)).call{value: finalPrice}(
+        payable(address(mintingContractProxy)).call{value: finalPrice}(
             abi.encodeWithSelector(MitchMinter.mintBatchWithNativeToken.selector, minterOne, tokenIds, tokenAmounts)
         );
         uint256 mitchTokenBalance = mitchTokenContract.balanceOf(minterOne);
@@ -263,11 +266,11 @@ contract TestMitchMinter is Test {
 
     function testMitchBalanceWithNative() public {
         vm.prank(owner);
-        mintingContract.setNativeTokenMinting(true);
+        mintingContractProxy.setNativeTokenMinting(true);
         vm.deal(address(minterOne), 2000);
         uint256 mintAmount = 5;
         vm.prank(minterOne);
-        (bool success,) = payable(address(mintingContract)).call{value: mintAmount * price}(
+        (bool success,) = payable(address(mintingContractProxy)).call{value: mintAmount * price}(
             abi.encodeWithSelector(MitchMinter.mintWithNativeToken.selector, minterOne, 1, mintAmount)
         );
         console.log('minted successfully', success);
@@ -278,11 +281,11 @@ contract TestMitchMinter is Test {
 
     function testFailNativeTokenMint() public {
         vm.prank(owner);
-        mintingContract.setNativeTokenMinting(false);
+        mintingContractProxy.setNativeTokenMinting(false);
         vm.deal(address(minterOne), 2000);
         uint256 mintAmount = 5;
         vm.prank(minterOne);
-        (bool success,) = payable(address(mintingContract)).call{value: mintAmount * price}(
+        (bool success,) = payable(address(mintingContractProxy)).call{value: mintAmount * price}(
             abi.encodeWithSelector(MitchMinter.mintWithNativeToken.selector, minterOne, 1, mintAmount)
         );
         vm.expectRevert(bytes('Can only mint with ERC20 token'));
@@ -290,10 +293,10 @@ contract TestMitchMinter is Test {
 
     function testFailerc20TokenMint() public {
         vm.prank(owner);
-        mintingContract.setNativeTokenMinting(true);
+        mintingContractProxy.setNativeTokenMinting(true);
         uint256 mintAmount = 5;
         vm.prank(minterOne);
-        mintingContract.mint(minterOne, 1, mintAmount);
+        mintingContractProxy.mint(minterOne, 1, mintAmount);
         vm.expectRevert(bytes('Can only mint with native token'));
     }
 }
