@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 import "@openzeppelin-contracts-upgradeable/contracts/access/AccessControlUpgradeable.sol";
 import "@openzeppelin-contracts-upgradeable/contracts/token/ERC1155/extensions/ERC1155BurnableUpgradeable.sol";
 import "@openzeppelin-contracts-upgradeable/contracts/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol";
@@ -96,7 +95,7 @@ contract MitchMinter is ERC1155BurnableUpgradeable, ERC1155URIStorageUpgradeable
         if (id > uniqueTokens) {
             revert NoTokenExists(id);
         }
-        require(!nativeMintEnabled, 'Can only mint with ERC20 token');
+        require(!nativeMintEnabled, 'Can only mint with native token');
         _handleMint(to, id, amount, 0, nativeMintEnabled);
     }
 
@@ -108,7 +107,7 @@ contract MitchMinter is ERC1155BurnableUpgradeable, ERC1155URIStorageUpgradeable
         if (id > uniqueTokens) {
             revert NoTokenExists(id);
         }
-        require(nativeMintEnabled, 'Can only mint with native token');
+        require(nativeMintEnabled, 'Can only mint with erc20 token');
         _handleMint(to, id, amount, msg.value, nativeMintEnabled);
     }
 
@@ -148,7 +147,7 @@ contract MitchMinter is ERC1155BurnableUpgradeable, ERC1155URIStorageUpgradeable
     /// @param ids an array of the token IDs of the NFTs to be minted
     /// @param amounts an array of the amount of each corresponding NFT by tokenID to be minted
     function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts) external {
-        require(!nativeMintEnabled, 'Can only mint with ERC20 token');
+        require(!nativeMintEnabled, 'Can only mint with native token');
         _handleMintBatch(to, ids, amounts, 0, nativeMintEnabled);
     }
     /// @notice This will mint multiple NFTS with different ids and amounts to an address using the network native token as payment
@@ -157,7 +156,7 @@ contract MitchMinter is ERC1155BurnableUpgradeable, ERC1155URIStorageUpgradeable
     /// @param amounts an array of the amount of each corresponding NFT by tokenID to be minted
 
     function mintBatchWithNativeToken(address to, uint256[] memory ids, uint256[] memory amounts) external payable {
-        require(nativeMintEnabled, 'Can only mint with native token');
+        require(nativeMintEnabled, 'Can only mint with erc20 token');
                _handleMintBatch(to, ids, amounts, msg.value, nativeMintEnabled);
     }
     ///
@@ -251,6 +250,27 @@ contract MitchMinter is ERC1155BurnableUpgradeable, ERC1155URIStorageUpgradeable
     ) internal override(ERC1155Upgradeable, ERC1155SupplyUpgradeable) {
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
     }
+
+    function tokensOwned(address account) external view returns (uint256[] memory) {
+    uint256[] memory tokens = new uint256[](uniqueTokens);
+    uint256 tokensOwnedAmount = 0;
+    
+    for (uint256 i = 0; i < uniqueTokens; i++) {
+        uint256 balance = balanceOf(account, i);
+        if (balance > 0) {
+            tokens[tokensOwnedAmount] = i;
+            tokensOwnedAmount++;
+        }
+    }
+    
+    // Resize the tokens array to only include the owned tokens
+    assembly {
+        mstore(tokens, tokensOwnedAmount)
+    }
+    
+    return tokens;
+}
+
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControlUpgradeable, ERC1155Upgradeable) returns (bool) {
     return super.supportsInterface(interfaceId);
